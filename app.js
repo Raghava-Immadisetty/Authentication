@@ -43,7 +43,7 @@ app.post("/register", async (request, response) => {
 
   if (dbUser === undefined) {
     if (password.length < 5) {
-      response.status = 400;
+      response.status(400);
       response.send("Password is too short");
     } else {
       const createUserQuery = `
@@ -62,7 +62,7 @@ app.post("/register", async (request, response) => {
       response.send("User created successfully");
     }
   } else {
-    response.status = 400;
+    response.status(400);
     response.send("User already exists");
   }
 });
@@ -78,16 +78,16 @@ app.post("/login", async (request, response) => {
     `;
   const dbUser = await db.get(identify);
   if (dbUser === undefined) {
-    response.status = 400;
+    response.status(400);
     response.send("Invalid user");
   } else {
     const isPasswordMatched = await compare(password, dbUser.password);
 
     if (isPasswordMatched === false) {
-      response.status = 400;
+      response.status(400);
       response.send("Invalid password");
     } else {
-      response.status = 200;
+      response.status(200);
       response.send("Login success!");
     }
   }
@@ -101,29 +101,36 @@ app.put("/change-password", async (request, response) => {
   const selectUserQuery = `SELECT * FROM user WHERE username = '${username}'`;
 
   const dbUser = await db.get(selectUserQuery);
-
-  const isPasswordMatched = await bcrypt.compare(oldPassword, dbUser.password);
-
-  if (isPasswordMatched === true) {
-    if (newPassword.length < 5) {
-      response.status = 400;
-      response.send("Password is too short");
-    } else {
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      const update = `
-      UPDATE user
-      SET password = '${hashedPassword}'
-      WHERE username = '${username}';
-      `;
-      await db.run(update);
-
-      response.status = 200;
-      response.send("Password updated");
-    }
+  if (dbUser === undefined) {
+    response.status(400);
+    response.send("User not registered");
   } else {
-    response.status = 400;
-    response.send("Invalid current password");
+    const isPasswordMatched = await bcrypt.compare(
+      oldPassword,
+      dbUser.password
+    );
+    if (isPasswordMatched === true) {
+      const passwordLength = newPassword.length;
+      if (passwordLength < 5) {
+        response.status(400);
+        response.send("Password is too short");
+      } else {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        const update = `
+        UPDATE user
+        SET password = '${hashedPassword}'
+        WHERE username = '${username}';
+        `;
+        await db.run(update);
+
+        response.status(200);
+        response.send("Password updated");
+      }
+    } else {
+      response.status(400);
+      response.send("Invalid current password");
+    }
   }
 });
 
